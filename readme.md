@@ -102,31 +102,29 @@ Silver layer partitioning enables Athena to skip irrelevant data on filtered que
 
 ## Monitoring
 
+CloudWatch monitors Step Functions executions and Glue job metrics in real time. A dedicated alarm fires on any pipeline failure — triggering an SNS email notification within one minute.
+
 ![CloudWatch Dashboard](screenshots/cloudwatch.jpg)
 
 Pipeline failure triggers a CloudWatch alarm → SNS email notification within one minute. DynamoDB records FAILED status with error message captured from Step Functions context.
 
 ![SNS Failure Email](screenshots/alarm_email.jpg)
 
-![Step Functions Failed](screenshots/SF_exe_failed.png)
-
 ---
 
 ## Pipeline Execution
 
+Every execution is tracked end to end — Step Functions orchestrates the sequence, DynamoDB logs the run status, and S3 holds the output at each layer.
+
 ![Step Functions Succeeded](screenshots/SF_exe_succeeded.png)
+
+Both Glue jobs completed successfully — Silver and Gold layers written to S3.
 
 ![DynamoDB Records](screenshots/dynamodb.jpg)
 
+Every pipeline run writes an audit record to DynamoDB with status, start time, end time, and input/output paths.
+
 ![S3 Bucket Structure](screenshots/datalake_bucket.jpg)
-
-![S3 Gold Layer](screenshots/gold.png)
-
-![Glue Job 1](screenshots/glue_job_1.jpg)
-
-![Glue Job 2](screenshots/glue_job_2.jpg)
-
-![EventBridge Rule](screenshots/eventbridge.png)
 
 ---
 
