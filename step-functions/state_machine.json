@@ -1,0 +1,169 @@
+{
+  "Comment": "Flight Data Lake Pipeline - Bronze to Silver to Gold with DynamoDB tracking",
+  "StartAt": "LogPipelineStart",
+  "States": {
+    "LogPipelineStart": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "datalake-pipeline-runs",
+        "Item": {
+          "pipeline_name": {
+            "S": "datalake-pipeline"
+          },
+          "run_id": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "status": {
+            "S": "RUNNING"
+          },
+          "start_time": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "input_path": {
+            "S": "s3://datalake-pipeline-project/bronze/flights/"
+          },
+          "output_path": {
+            "S": "s3://datalake-pipeline-project/gold/flights"
+          }
+        }
+      },
+      "Next": "BronzeToSilver"
+    },
+    "BronzeToSilver": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "bronze_to_silver",
+        "Arguments": {
+          "--S3_INPUT_PATH": "s3://datalake-pipeline-project/bronze/flights/",
+          "--S3_OUTPUT_PATH": "s3://datalake-pipeline-project/silver/flights/"
+        }
+      },
+      "Next": "SilverToGold",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 1,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "LogPipelineFailed"
+        }
+      ]
+    },
+    "SilverToGold": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "silver_to_gold",
+        "Arguments": {
+          "--S3_INPUT_PATH": "s3://datalake-pipeline-project/silver/flights/",
+          "--S3_OUTPUT_PATH": "s3://datalake-pipeline-project/gold/flights"
+        }
+      },
+      "Next": "LogPipelineSucceeded",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 1,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "LogPipelineFailed"
+        }
+      ]
+    },
+    "LogPipelineSucceeded": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "datalake-pipeline-runs",
+        "Item": {
+          "pipeline_name": {
+            "S": "datalake-pipeline"
+          },
+          "run_id": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "status": {
+            "S": "SUCCEEDED"
+          },
+          "start_time": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "end_time": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "input_path": {
+            "S": "s3://datalake-pipeline-project/bronze/flights/"
+          },
+          "output_path": {
+            "S": "s3://datalake-pipeline-project/gold/flights"
+          }
+        }
+      },
+      "Next": "PipelineSucceeded"
+    },
+    "LogPipelineFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "datalake-pipeline-runs",
+        "Item": {
+          "pipeline_name": {
+            "S": "datalake-pipeline"
+          },
+          "run_id": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "status": {
+            "S": "FAILED"
+          },
+          "start_time": {
+            "S.$": "$$.Execution.StartTime"
+          },
+          "end_time": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "input_path": {
+            "S": "s3://datalake-pipeline-project/bronze/flights/"
+          },
+          "output_path": {
+            "S": "s3://datalake-pipeline-project/gold/flights"
+          },
+          "error_message": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "Next": "PipelineFailed"
+    },
+    "PipelineSucceeded": {
+      "Type": "Succeed"
+    },
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "PipelineError",
+      "Cause": "One or more Glue jobs failed"
+    }
+  }
+}
