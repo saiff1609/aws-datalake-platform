@@ -120,11 +120,11 @@ Every execution is tracked end to end — Step Functions orchestrates the sequen
 
 Both Glue jobs completed successfully — Silver and Gold layers written to S3.
 
-![DynamoDB Records](screenshots/dynamodb.jpg)
+![S3 Bucket Structure](screenshots/datalake_bucket.jpg)
 
 Every pipeline run writes an audit record to DynamoDB with status, start time, end time, and input/output paths.
 
-![S3 Bucket Structure](screenshots/datalake_bucket.jpg)
+![DynamoDB Records](screenshots/dynamodb.jpg)
 
 ---
 
@@ -140,7 +140,7 @@ Five business queries on Gold layer — [`queries/business_queries.sql`](queries
 
 ---
 
-## Challenges
+## Challenges I Faced
 
 **Glue script path** — Glue silently loaded a 0-byte script when the S3 path was misconfigured, causing jobs to report Succeeded without processing any data. Learned to always verify script file size in S3 before running.
 
